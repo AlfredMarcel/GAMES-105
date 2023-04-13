@@ -1,4 +1,5 @@
 from bvh_utils import *
+from scipy.spatial.transform import Rotation as R
 #---------------你的代码------------------#
 # translation 和 orientation 都是全局的
 def skinning(joint_translation, joint_orientation, T_pose_joint_translation, T_pose_vertex_translation, skinning_idx, skinning_weight):
@@ -19,4 +20,18 @@ def skinning(joint_translation, joint_orientation, T_pose_joint_translation, T_p
     
     #---------------你的代码------------------#
     
+    poi_num = T_pose_vertex_translation.shape[0]
+    poi_loc = np.zeros_like(T_pose_vertex_translation)
+    # bind pose
+    for i in range(poi_num):
+        bind_joint = skinning_idx[i]
+        bind_weight = skinning_weight[i]
+        bind_poi = np.zeros_like(poi_loc[i,:])
+        for j in range(4):
+            q = R(joint_orientation[bind_joint[j]])
+            bind_poi += bind_weight[j]*(R.apply(q,(T_pose_vertex_translation[i]-T_pose_joint_translation[bind_joint[j]]))+joint_translation[bind_joint[j]])
+        poi_loc[i,:] = bind_poi
+
+    vertex_translation = poi_loc
+
     return vertex_translation

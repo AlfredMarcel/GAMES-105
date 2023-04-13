@@ -8,6 +8,7 @@ def load_motion_data(bvh_file_path):
         for i in range(len(lines)):
             if lines[i].startswith('Frame Time'):
                 break
+        # 定位到motion行
         motion_data = []
         for line in lines[i+1:]:
             data = [float(x) for x in line.split()]
@@ -30,9 +31,13 @@ def part1_calculate_T_pose(bvh_file_path):
     Tips:
         joint_name顺序应该和bvh一致
     """
-    joint_name = None
-    joint_parent = None
-    joint_offset = None
+    data = load_motion_data(bvh_file_path)
+    joint_name, joint_parent, joint_offset = [], [], []
+    stk = []
+    f = open(bvh_file_path)
+    lines = [i.strip() for i in f.readlines()]
+    
+
     return joint_name, joint_parent, joint_offset
 
 

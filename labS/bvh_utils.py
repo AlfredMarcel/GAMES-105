@@ -103,26 +103,34 @@ class BVHMotion():
         motion_data = load_motion_data(bvh_file_path)
 
         # 把motion_data里的数据分配到joint_position和joint_rotation里
+        # 每帧每关节的局部偏移
         self.joint_position = np.zeros((motion_data.shape[0], len(self.joint_name), 3))
+        # 每帧每关节的局部旋转
         self.joint_rotation = np.zeros((motion_data.shape[0], len(self.joint_name), 4))
         self.joint_rotation[:,:,3] = 1.0 # 四元数的w分量默认为1
         
         cur_channel = 0
         for i in range(len(self.joint_name)):
+            # 叶子，只记录偏移
             if self.joint_channel[i] == 0:
                 self.joint_position[:,i,:] = joint_offset[i].reshape(1,3)
                 continue   
+            # 中间结点，偏移+旋转
             elif self.joint_channel[i] == 3:
                 self.joint_position[:,i,:] = joint_offset[i].reshape(1,3)
                 rotation = motion_data[:, cur_channel:cur_channel+3]
+            # 根节点，[0,0,0]+旋转
             elif self.joint_channel[i] == 6:
                 self.joint_position[:, i, :] = motion_data[:, cur_channel:cur_channel+3]
                 rotation = motion_data[:, cur_channel+3:cur_channel+6]
+            # 欧拉角转四元数
             self.joint_rotation[:, i, :] = R.from_euler('XYZ', rotation,degrees=True).as_quat()
             cur_channel += self.joint_channel[i]
         
         return
 
+
+    # 前向运动学做得就是：将骨骼表示的局部（偏移，旋转）转换成全局（偏移，旋转）
     def batch_forward_kinematics(self, joint_position = None, joint_rotation = None):
         '''
         利用自身的metadata进行批量前向运动学
@@ -143,9 +151,12 @@ class BVHMotion():
         
         for i in range(len(self.joint_name)):
             pi = self.joint_parent[i]
+            # 任意帧下，i的父节点的全局旋转
             parent_orientation = R.from_quat(joint_orientation[:,pi,:]) 
+            # 任意帧下，i结点的全局偏移 = i的父节点全局偏移+对i的局部偏移进行父节点的全局旋转
             joint_translation[:, i, :] = joint_translation[:, pi, :] + \
                 parent_orientation.apply(joint_position[:, i, :])
+            # 任意帧下，i结点的全局旋转 = 父节点的全局旋转*i的局部旋转
             joint_orientation[:, i, :] = (parent_orientation * R.from_quat(joint_rotation[:, i, :])).as_quat()
         return joint_translation, joint_orientation
     
