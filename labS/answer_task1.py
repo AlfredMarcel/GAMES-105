@@ -1,3 +1,8 @@
+'''
+Description: 说明
+Author: Marcel
+Date: 2023-04-13 19:32:25
+'''
 from bvh_utils import *
 from scipy.spatial.transform import Rotation as R
 #---------------你的代码------------------#
@@ -16,22 +21,25 @@ def skinning(joint_translation, joint_orientation, T_pose_joint_translation, T_p
     输出：
         vertex_translation: (N,3)的ndarray, 蒙皮顶点的位置
     """
-    vertex_translation = T_pose_vertex_translation.copy()
-    
+    vertex_translation = T_pose_vertex_translation.copy()  
     #---------------你的代码------------------#
+
+    # [N,4,3]
+    toj = T_pose_joint_translation[skinning_idx.reshape(-1),:].reshape(-1,4,3)
+    rij = T_pose_vertex_translation[:,np.newaxis,:]-toj
+
+    # [M,3,3]
+    joint_orientation = R(joint_orientation).as_matrix()
+    # [N,4,3,3]
+    Qj = joint_orientation[skinning_idx.reshape(-1),:,:].reshape(-1,4,3,3)
+    # [N,4,3]
+    oj = joint_translation[skinning_idx.reshape(-1),:].reshape(-1,4,3)
     
-    poi_num = T_pose_vertex_translation.shape[0]
-    poi_loc = np.zeros_like(T_pose_vertex_translation)
-    # bind pose
-    for i in range(poi_num):
-        bind_joint = skinning_idx[i]
-        bind_weight = skinning_weight[i]
-        bind_poi = np.zeros_like(poi_loc[i,:])
-        for j in range(4):
-            q = R(joint_orientation[bind_joint[j]])
-            bind_poi += bind_weight[j]*(R.apply(q,(T_pose_vertex_translation[i]-T_pose_joint_translation[bind_joint[j]]))+joint_translation[bind_joint[j]])
-        poi_loc[i,:] = bind_poi
+    # [N,4,3]
+    # tmp = np.einsum('abij,abi -> abj',Qj,rij) 就错了 相当于是拿坐标的转置左乘旋转矩阵
+    tmp = np.einsum('abij,abj -> abi',Qj,rij)
+    tmp = tmp+oj
 
-    vertex_translation = poi_loc
+    tmp = np.einsum('ij,ijk -> ik',skinning_weight,tmp)
 
-    return vertex_translation
+    return tmp
